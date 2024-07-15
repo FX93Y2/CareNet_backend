@@ -1,8 +1,11 @@
-import os
-from dotenv import load_dotenv
+from pydantic import BaseSettings
 
-load_dotenv()
+class Settings(BaseSettings):
+    mongodb_url: str
+    db_name: str
 
-DATABASE_URL = os.getenv("DATABASE_URL")
-ARCGIS_API_KEY = os.getenv("ARCGIS_API_KEY")
-ARCGIS_PORTAL_URL = os.getenv("ARCGIS_PORTAL_URL")
+    class Config:
+        env_file = ".env"
+
+def get_settings() -> Settings:
+    return Settings()
