@@ -3,6 +3,7 @@ import '@arcgis/core/assets/esri/themes/light/main.css';
 import Map from "@arcgis/core/Map";
 import MapView from "@arcgis/core/views/MapView";
 import esriConfig from "@arcgis/core/config";
+import CareRequestForm from './components/CareRequestForm';
 
 import './App.css';
 
@@ -42,8 +43,8 @@ function App() {
         new MapView({
           container: mapDiv.current,
           map: map,
-          center: [117.2808, 31.8639], // Longitude, Latitude for Hefei, China
-          zoom: 10 // Adjusted zoom level for city view
+          center: [117.2808, 31.8639],
+          zoom: 10
         });
 
         console.log('Map initialized successfully');
@@ -63,9 +64,11 @@ function App() {
       <header className="App-header">
         <h1>Fumicro Carenet</h1>
       </header>
-      <div className="mapDiv" ref={mapDiv}></div>
+      <div className="content">
+        <div className="mapDiv" ref={mapDiv}></div>
+        <CareRequestForm />
+      </div>
     </div>
   );
 }
-
 export default App;
