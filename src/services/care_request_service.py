@@ -1,13 +1,19 @@
+from ast import List
+from pymongo.collection import Collection
 from bson import ObjectId
+from typing import List
+from motor.motor_asyncio import AsyncIOMotorClient
 from fastapi import status
 from src.models.schemas import CareRequest, CareRequestUpdate, CareRequestStatus
 from src.database.mongodb import get_care_requests_collection
 from src.services.geofencing_service import GeofencingService
 from src.services.task_scheduler_service import TaskSchedulerService
 from src.utils.error_handling import AppException
+import logging
 
 class CareRequestService:
-    def __init__(self, geofencing: GeofencingService, scheduler: TaskSchedulerService):
+    def __init__(self, db_client: AsyncIOMotorClient, geofencing: GeofencingService, scheduler: TaskSchedulerService): # type: ignore
+        self.db_client = db_client
         self.geofencing = geofencing
         self.scheduler = scheduler
 
@@ -29,7 +35,7 @@ class CareRequestService:
             raise AppException(status_code=status.HTTP_404_NOT_FOUND, 
                                detail="Care request not found")
         return CareRequest(**care_request)
-
+    
     async def update_care_request(self, request_id: str, updates: CareRequestUpdate) -> CareRequest:
         collection = await get_care_requests_collection()
         update_data = updates.model_dump(exclude_unset=True)
@@ -48,16 +54,33 @@ class CareRequestService:
         if result.deleted_count == 0:
             raise AppException(status_code=status.HTTP_404_NOT_FOUND, 
                                detail="Care request not found")
+        
 
-    async def list_care_requests(self, skip: int = 0, limit: int = 100) -> list[CareRequest]:
-        collection = await get_care_requests_collection()
-        cursor = await collection.find()
-        cursor = await cursor.skip(skip).limit(limit).to_list(length=limit)
-        return [CareRequest(**doc) for doc in cursor]
+    def get_care_requests_collection(self) -> Collection:
+        return self.db_client.test_database.care_requests
+
+    async def list_care_requests(self, skip: int = 0, limit: int = 100) -> List[CareRequest]:
+        try:
+            collection = await get_care_requests_collection()
+            logging.debug(f"Collection: {collection}")
+            
+            cursor = collection.find().skip(skip).limit(limit)
+            care_requests = await cursor.to_list(length=limit)
+            
+            return [CareRequest(**cr) for cr in care_requests]
+        except Exception as e:
+            logging.error(f"Error in list_care_requests: {str(e)}")
+            raise AppException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
+                               detail="An error occurred while fetching care requests")
 
 
-    async def get_requests_by_status(self, status: CareRequestStatus) -> list[CareRequest]:
-        collection = await get_care_requests_collection()
-        cursor = await collection.find({"status": status})
-        cursor = await cursor.to_list(length=None)
-        return [CareRequest(**doc) for doc in cursor]
+    async def get_requests_by_status(self, status: CareRequestStatus) -> List[CareRequest]:
+        try:
+            collection = await get_care_requests_collection()
+            cursor = collection.find({"status": status})
+            care_requests = await cursor.to_list(length=None)
+            return [CareRequest(**doc) for doc in care_requests]
+        except Exception as e:
+            logging.error(f"Error in get_requests_by_status: {str(e)}")
+            raise AppException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
+                               detail="An error occurred while fetching care requests by status")

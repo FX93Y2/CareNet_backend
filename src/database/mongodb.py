@@ -4,7 +4,7 @@ from src.utils.config import get_settings
 settings = get_settings()
 
 class Database:
-    client: AsyncIOMotorClient = None
+    client: AsyncIOMotorClient = None # type: ignore
 
 db = Database()
 
