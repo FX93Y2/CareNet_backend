@@ -3,4 +3,4 @@ API_Key.txt
 node_modules/
 FileTree.md
 __pycache__/
-__pycache__/conftest.cpython-311-pytest-8.2.2.pyc
+**/__pycache__/*.pyc
