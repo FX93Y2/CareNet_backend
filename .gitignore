@@ -3,4 +3,9 @@ API_Key.txt
 node_modules/
 FileTree.md
 __pycache__/
+/__pycache__/
 **/__pycache__/*.pyc
+src/database/__pycache__/mongodb.cpython-311.pyc
+src/services/__pycache__/care_request_service.cpython-311.pyc
+src/services/__pycache__/geofencing_service.cpython-311.pyc
+src/utils/__pycache__/config.cpython-311.pyc
