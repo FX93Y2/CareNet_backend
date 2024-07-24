@@ -8,7 +8,9 @@ from src.models.schemas import Location
 from src.utils.config import Settings
 from arcgis.gis import GIS
 from arcgis.features import FeatureLayer
+from arcgis.geometry import Polygon
 import time
+
 
 # Load environment variables
 load_dotenv()
@@ -59,8 +61,11 @@ def test_service_area_initialization(geofencing_service):
     if geofencing_service.service_area is None:
         logger.warning("Service area is None, check if the layer is empty")
     else:
-        logger.info(f"Service area geometry type: {geofencing_service.service_area.type}")
-        logger.info(f"Service area JSON: {json.dumps(geofencing_service.service_area.as_dict(), indent=2)}")
+        assert isinstance(geofencing_service.service_area, Polygon), "Service area should be a Polygon object"
+        logger.info(f"Service area geometry type: {type(geofencing_service.service_area).__name__}")
+        logger.info(f"Service area rings: {geofencing_service.service_area.rings}")
+        logger.info(f"Service area spatial reference: {geofencing_service.service_area.spatial_reference}")
+        logger.info(f"Service area extent: {geofencing_service.service_area.extent}")
     assert geofencing_service.service_area is not None, "Service area should be initialized"
 
 @pytest.mark.integration

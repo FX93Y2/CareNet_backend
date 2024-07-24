@@ -22,7 +22,6 @@ class GeofencingService:
         try:
             service_area_layer = FeatureLayer(self.settings.SERVICE_AREA_LAYER_URL, self.gis)
             
-            # Query the layer with specific parameters
             query_result = service_area_layer.query(
                 where="1=1",
                 out_fields="*",
@@ -31,27 +30,18 @@ class GeofencingService:
                 out_sr=4326  # WGS84 coordinate system
             )
             
-            # Print the entire query result
             logger.debug(f"Full query result: {json.dumps(query_result.to_dict(), indent=2)}")
             
-            # Check if there's an error in the response
-            if 'error' in query_result:
-                logger.error(f"Error in query response: {query_result['error']}")
-                return None
-            
-            if not hasattr(query_result, 'features') or not query_result.features:
+            if not query_result.features:
                 logger.warning("No features found in the service area layer")
                 return None
             
             service_area_feature = query_result.features[0]
-            if not hasattr(service_area_feature, 'geometry') or not service_area_feature.geometry:
+            if not service_area_feature.geometry:
                 raise ValueError("Invalid geometry in the service area feature")
             
-            # Convert the geometry to a format that the Geometry class can understand
-            geometry_dict = service_area_feature.geometry.as_dict()
-            logger.debug(f"Geometry dict: {json.dumps(geometry_dict, indent=2)}")
-            
-            return Geometry(geometry_dict)
+            # Create a Geometry object directly from the feature's geometry
+            return Geometry(service_area_feature.geometry)
         except Exception as e:
             error_message = f"Error fetching service area: {str(e)}"
             logger.error(error_message, exc_info=True)
