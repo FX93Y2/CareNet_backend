@@ -1,0 +1,4 @@
+{
+  "Interpreter": "CondaEnv|CondaEnv|FuMicro_CareNet",
+  "TestFramework": "Pytest"
+}

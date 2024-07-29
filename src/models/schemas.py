@@ -1,10 +1,9 @@
-from pydantic import BaseModel, Field, EmailStr, ConfigDict
-from pydantic.json_schema import JsonSchemaValue
-from pydantic_core import core_schema
-from datetime import datetime
-from typing import Optional, List, Any, Annotated
-from bson import ObjectId
 from enum import Enum
+from datetime import datetime
+from typing import Optional, List, Any, Dict
+from pydantic import BaseModel, Field, EmailStr, Config as ConfigDict
+from pydantic_core import core_schema
+from bson import ObjectId
 
 class PyObjectId(str):
     @classmethod
@@ -32,16 +31,29 @@ class BaseMongoModel(BaseModel):
         populate_by_name = True
 
 class ServiceType(str, Enum):
-    MEDICAL_CHECKUP = "Medical Checkup"
-    MEDICATION_ADMINISTRATION = "Medication Administration"
-    PHYSICAL_THERAPY = "Physical Therapy"
-    PERSONAL_CARE = "Personal Care"
+    MEDICAL_CHECKUP = "Medical Checkup" #医疗检查
+    MEDICATION_ADMINISTRATION = "Medication Administration" #药物管理
+    PHYSICAL_THERAPY = "Physical Therapy" #身体检查
+    PERSONAL_CARE = "Personal Care" #个人护理（洗澡、洗头、换衣服等）
 
 class UrgencyLevel(str, Enum):
     LOW = "Low"
     NORMAL = "Normal"
     HIGH = "High"
     EMERGENCY = "Emergency"
+
+class Location(BaseModel):
+    latitude: float
+    longitude: float
+
+# CareRequest models
+class CareRequestBase(BaseMongoModel):
+    client_id: PyObjectId
+    service_type: ServiceType
+    urgency: UrgencyLevel
+    location: Location
+    description: Optional[str] = None
+    created_at: Optional[datetime] = None
 
 class CareRequestStatus(str, Enum):
     PENDING = "Pending"
@@ -50,21 +62,12 @@ class CareRequestStatus(str, Enum):
     COMPLETED = "Completed"
     CANCELLED = "Cancelled"
 
-class CareWorkerStatus(str, Enum):
-    AVAILABLE = "Available"
-    BUSY = "Busy"
-    OFFLINE = "Offline"
-
-class Location(BaseModel):
-    latitude: float
-    longitude: float
-
-class CareRequestBase(BaseMongoModel):
-    client_id: PyObjectId
-    service_type: ServiceType
-    urgency: UrgencyLevel
-    location: Location
-    description: Optional[str] = None
+class CareRequest(CareRequestBase):
+    id: PyObjectId = Field(default_factory=PyObjectId, alias="_id")
+    status: CareRequestStatus = CareRequestStatus.PENDING
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    assigned_worker_id: Optional[PyObjectId] = None
+    estimated_fee: Optional[float] = None
 
 class CareRequestCreate(CareRequestBase):
     pass
@@ -74,19 +77,36 @@ class CareRequestUpdate(BaseMongoModel):
     assigned_worker_id: Optional[PyObjectId] = None
     estimated_fee: Optional[float] = None
 
-class CareRequest(CareRequestBase):
+class CareCenter(BaseMongoModel):
     id: PyObjectId = Field(default_factory=PyObjectId, alias="_id")
-    status: CareRequestStatus = CareRequestStatus.PENDING
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    assigned_worker_id: Optional[PyObjectId] = None
-    estimated_fee: Optional[float] = None
+    name: str
+    location: Location
+    service_area: Dict[str, Any]
+
+class CareCenterCreate(BaseModel):
+    name: str
+    location: Location
+    service_area: List[Location]
+
+class CareCenterUpdate(BaseModel):
+    name: Optional[str] = None
+    location: Optional[Location] = None
+    service_area: Optional[List[Location]] = None
+
+# Carewroker models
 
 class CareWorkerBase(BaseMongoModel):
     name: str
     email: EmailStr
     phone_number: str
     specializations: List[ServiceType]
+    care_center_id: PyObjectId
     current_location: Location
+
+class CareWorkerStatus(str, Enum):
+    AVAILABLE = "Available"
+    BUSY = "Busy"
+    OFFLINE = "Offline"
 
 class CareWorkerCreate(CareWorkerBase):
     password: str
@@ -101,6 +121,7 @@ class CareWorker(CareWorkerBase):
     rating: float = Field(ge=0, le=5, default=0)
     completed_tasks: int = 0
 
+# User models
 class UserBase(BaseMongoModel):
     username: str
     email: EmailStr

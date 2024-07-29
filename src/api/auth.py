@@ -1,70 +1,75 @@
-# src/api/auth.py
-
-from fastapi import HTTPException, Depends, Security
-from fastapi.security import OAuth2PasswordBearer, SecurityScopes
-from jose import JWTError, jwt
-from pydantic import ValidationError
 from datetime import datetime, timedelta
-from typing import Optional, List
+from typing import Optional
 
-# This should be stored securely, not in the code
-SECRET_KEY = "eyJhbGciOiJIUzI1NiJ9.eyJSb2xlIjoiQWRtaW4iLCJJc3N1ZXIiOiJJc3N1ZXIiLCJVc2VybmFtZSI6IkphdmFJblVzZSIsImV4cCI6MTcyMTIwMzU4MiwiaWF0IjoxNzIxMjAzNTgyfQ.FFQtvYAN-4MrfQemN7yjmY4vqUAWZm77kC6j9szE0Nw"
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
+from fastapi import Depends, HTTPException, status
+from fastapi.security import OAuth2PasswordBearer
+from jose import JWTError, jwt
+from passlib.context import CryptContext
+from pydantic import BaseModel
 
+from src.models.schemas import User, TokenData
+from src.database.mongodb import get_users_collection
+from src.utils.config import get_settings
+
+settings = get_settings()
+
+# Password hashing
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+# OAuth2 scheme for token
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
-class TokenData:
-    def __init__(self, username: str, scopes: List[str] = []):
-        self.username = username
-        self.scopes = scopes
+def verify_password(plain_password: str, hashed_password: str) -> bool:
+    """Verify a plain password against a hashed password."""
+    return pwd_context.verify(plain_password, hashed_password)
 
-def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
+def get_password_hash(password: str) -> str:
+    """Hash a password for storing."""
+    return pwd_context.hash(password)
+
+async def authenticate_user(username: str, password: str) -> Optional[User]:
+    """Authenticate a user by username and password."""
+    users_collection = await get_users_collection()
+    user_dict = await users_collection.find_one({"username": username})
+    if not user_dict:
+        return None
+    user = User(**user_dict)
+    if not verify_password(password, user_dict.get("hashed_password", "")):
+        return None
+    return user
+
+def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
+    """Create a new access token."""
     to_encode = data.copy()
-    if expires_delta:
-        expire = datetime.utcnow() + expires_delta
-    else:
-        expire = datetime.utcnow() + timedelta(minutes=15)
+    expire = datetime.utcnow() + (expires_delta or timedelta(minutes=15))
     to_encode.update({"exp": expire})
-    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+    encoded_jwt = jwt.encode(to_encode, settings.secret_key, algorithm=settings.algorithm)
     return encoded_jwt
 
-async def get_current_user(security_scopes: SecurityScopes, token: str = Depends(oauth2_scheme)):
-    if security_scopes.scopes:
-        authenticate_value = f'Bearer scope="{security_scopes.scope_str}"'
-    else:
-        authenticate_value = "Bearer"
-
+async def get_current_user(token: str = Depends(oauth2_scheme)) -> User:
+    """Get the current user from a token."""
     credentials_exception = HTTPException(
-        status_code=401,
+        status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
-        headers={"WWW-Authenticate": authenticate_value},
+        headers={"WWW-Authenticate": "Bearer"},
     )
     try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        payload = jwt.decode(token, settings.secret_key, algorithms=[settings.algorithm])
         username: str = payload.get("sub")
         if username is None:
             raise credentials_exception
-        token_scopes = payload.get("scopes", [])
-        token_data = TokenData(username=username, scopes=token_scopes)
-    except (JWTError, ValidationError):
+        token_data = TokenData(username=username)
+    except JWTError:
         raise credentials_exception
-    
-    # Here you would typically fetch the user from your database
-    # For now, we'll just return the token data
-    user = token_data
 
-    for scope in security_scopes.scopes:
-        if scope not in token_data.scopes:
-            raise HTTPException(
-                status_code=401,
-                detail="Not enough permissions",
-                headers={"WWW-Authenticate": authenticate_value},
-            )
-    return user
+    users_collection = await get_users_collection()
+    user_dict = await users_collection.find_one({"username": token_data.username})
+    if user_dict is None:
+        raise credentials_exception
+    return User(**user_dict)
 
-# Function to use as a dependency in routes
-def get_current_active_user(current_user: TokenData = Security(get_current_user, scopes=["active"])):
-    if not current_user:
+async def get_current_active_user(current_user: User = Depends(get_current_user)) -> User:
+    """Get the current active user."""
+    if current_user.disabled:
         raise HTTPException(status_code=400, detail="Inactive user")
     return current_user
