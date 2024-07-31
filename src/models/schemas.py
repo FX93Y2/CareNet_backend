@@ -1,7 +1,8 @@
 from enum import Enum
 from datetime import datetime
 from typing import Optional, List, Any, Dict
-from pydantic import BaseModel, Field, EmailStr, Config as ConfigDict
+from pydantic import BaseModel, Field, EmailStr
+from pydantic.config import ConfigDict
 from pydantic_core import core_schema
 from bson import ObjectId
 
@@ -26,9 +27,7 @@ class PyObjectId(str):
         ])
 
 class BaseMongoModel(BaseModel):
-    class Config(ConfigDict):
-        arbitrary_types_allowed = True
-        populate_by_name = True
+    model_config = ConfigDict(arbitrary_types_allowed=True, populate_by_name=True)
 
 class ServiceType(str, Enum):
     MEDICAL_CHECKUP = "Medical Checkup" #医疗检查
@@ -76,6 +75,8 @@ class CareRequestUpdate(BaseMongoModel):
     status: Optional[CareRequestStatus] = None
     assigned_worker_id: Optional[PyObjectId] = None
     estimated_fee: Optional[float] = None
+
+# CareCenter models
 
 class CareCenter(BaseMongoModel):
     id: PyObjectId = Field(default_factory=PyObjectId, alias="_id")

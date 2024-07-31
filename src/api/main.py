@@ -1,7 +1,6 @@
 '''main FASTAPI application file'''
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from contextlib import asynccontextmanager
-
 from . import auth
 from .routes import care_requests, care_workers
 from src.database.mongodb import connect_to_mongo, close_mongo_connection
@@ -23,3 +22,7 @@ app.include_router(care_workers.router, prefix="/api", tags=["Care Workers"])
 @app.get("/")
 async def root():
     return {"message": "Welcome to Fumicro Carenet API"}
+
+@app.get("/base_url")
+async def get_base_url(request: Request):
+    return {"base_url": str(request.base_url)}

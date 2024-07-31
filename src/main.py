@@ -1,7 +1,7 @@
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from starlette.exceptions import HTTPException as StarletteHTTPException
-from api.routes import care_requests, auth
+from .api.routes import care_requests, auth
 from utils.error_handling import (
     AppException,
     app_exception_handler,
