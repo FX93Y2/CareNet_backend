@@ -10,7 +10,7 @@ class Settings(BaseSettings):
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 30
     KAFKA_BOOTSTRAP_SERVERS: str = "localhost:9092"
-    REDIS_URL: str = "redis://localhost"
+    REDIS_URL: str = "redis://localhost:6379"
 
     class Config:
         env_file = ".env"

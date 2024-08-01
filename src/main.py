@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, Depends
 from fastapi.exceptions import RequestValidationError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from contextlib import asynccontextmanager
@@ -12,7 +12,8 @@ from .utils.error_handling import (
 )
 from .database.mongodb import connect_to_mongo, close_mongo_connection
 from .services.care_worker_service import CareWorkerService
-import asyncio
+from redis.asyncio import Redis
+from src.utils.redis_config import get_redis
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -54,6 +55,12 @@ app.include_router(care_centers.router, prefix="/api/v1/care-centers", tags=["Ca
 @app.get("/")
 async def root():
     return {"message": "Welcome to Fumicro Carenet API"}
+
+@app.get("/test-redis")
+async def test_redis(redis: Redis = Depends(get_redis)):
+    await redis.set("test_key", "Hello, Redis!")
+    value = await redis.get("test_key")
+    return {"redis_test": value}
 
 @app.get("/base_url")
 async def get_base_url(request: Request):
