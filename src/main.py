@@ -11,13 +11,25 @@ from .utils.error_handling import (
     log_request
 )
 from .database.mongodb import connect_to_mongo, close_mongo_connection
+from .services.care_worker_service import CareWorkerService
+import asyncio
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
     await connect_to_mongo()
+    
+    # Initialize services
+    care_worker_service = CareWorkerService()
+    await care_worker_service.initialize()
+    
+    # Store the service in app state for access in route handlers
+    app.state.care_worker_service = care_worker_service
+    
     yield
+    
     # Shutdown
+    await care_worker_service.close()
     await close_mongo_connection()
 
 app = FastAPI(title="CareNet API", lifespan=lifespan)

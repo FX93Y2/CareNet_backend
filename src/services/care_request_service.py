@@ -4,14 +4,13 @@ from fastapi import status
 from src.models.schemas import CareRequest, CareRequestCreate, CareRequestUpdate, CareRequestStatus
 from src.database.mongodb import get_care_requests_collection
 from src.services.geofencing_service import GeofencingService
-from src.services.task_scheduler_service import TaskSchedulerService
+from src.services.kafka_producer_service import KafkaProducerService
 from src.utils.error_handling import AppException
-import logging
 
 class CareRequestService:
-    def __init__(self, geofencing: GeofencingService, scheduler: TaskSchedulerService):
+    def __init__(self, geofencing: GeofencingService, kafka_producer: KafkaProducerService):
         self.geofencing = geofencing
-        self.scheduler = scheduler
+        self.kafka_producer = kafka_producer
 
     async def create_care_request(self, care_request: CareRequestCreate) -> str:
         if not self.geofencing.is_location_allowed(care_request.location):
@@ -21,8 +20,15 @@ class CareRequestService:
         collection = await get_care_requests_collection()
         care_request_dict = care_request.model_dump()
         result = await collection.insert_one(care_request_dict)
-        await self.scheduler.schedule_new_request(str(result.inserted_id))
-        return str(result.inserted_id)
+        request_id = str(result.inserted_id)
+        
+        # Publish the new care request to Kafka
+        await self.kafka_producer.publish_message("new_care_requests", {
+            "request_id": request_id,
+            **care_request_dict
+        })
+        
+        return request_id
 
     async def get_care_request(self, request_id: str) -> CareRequest:
         collection = await get_care_requests_collection()
